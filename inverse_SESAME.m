@@ -9,7 +9,7 @@ function [result] = inverse_SESAME(full_data, leadfield, sourcespace, cfg)
 % 
 %
 % Use as
-%  posterior = ft_inverse_SESAME(data, leadfield, sourcespace, ...)
+%  posterior = inverse_SESAME(data, leadfield, sourcespace, cfg)
 % 
 % where
 %  data        = data matrix, 
@@ -22,8 +22,50 @@ function [result] = inverse_SESAME(full_data, leadfield, sourcespace, cfg)
 %  posterior   = structure containing the estimated source parameters, a 
 %                 posterior probability map and all the Monte Carlo samples
 %
+%  relevant fields of posterior:
 %
-% optional input:
+%         mod_sel = model selection function (in fact, a collection of)
+%                   a 2D array
+%                   max number of dipoles X number of iterations;
+%                   at a selected iteration, it provides the posterior distribution over 	
+%                     the number of dipoles
+%                   default use:
+%                   - fix the second index to the last iteration (posterior.final_it)
+%                   - take the argmax of the resulting array as an estimate of the 
+%                       number of dipoles
+% 
+% 
+%         pmap	= posterior probability map (in fact, a collection of) 
+%                 a 3D array 
+%                 number of source points  X number of iterations X max number of dipoles;
+%                 default use:
+%                 - set the second index to the last iteration (posterior.final_it)
+%                 - set the third index to the estimated number of dipoles
+% 
+%         estimated_dipoles = vertex indices of estimated dipoles in the source space
+% 
+%         est_dip = all estimated dipoles *across all iterations*
+%                   a 2D array
+%                   number of ALL estimated dipoles X 5
+%                   in every line we have one estimated dipole as follows:
+%                   x location, y location, z location, iteration number, vertex index
+% 
+% 
+%         Q_estimated = source amplitudes (positive scalar) of estimated dipoles
+%                       a 2D array
+%                       number of estimated dipoles X number of time points
+% 
+%         QV_estimated = estimated vector dipole moments across time
+%                        a 2D array
+%                        3*number of estimated dipoles X number of time points
+% 
+%         MCsamples = all Monte Carlo samples, at all iterations 
+%                     stored for any other type of inference
+%
+%         AllWeights = all weights of the corresponding Monte Carlo samples
+
+%
+% optional input, passed as field inside cfg:
 %
 %  noise_std  = noise standard deviation
 %  dipmom_std = expected strength of dipole moment (formally: standard
@@ -147,6 +189,7 @@ end
 %%%%%%%%%%%%%%%%%% Sampling from the prior %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 weights = zeros(1,n_samples);
+AllWeights = zeros(N, n_samples);
 log_update = weights;
 n = 1;
 for i = 1:n_samples
@@ -171,7 +214,7 @@ end
 weights = weights ./ sum(weights);
 
 pmap = zeros(size(V,1), N, NDIP);
-mod_sel = zeros(NDIP*10,N);
+mod_sel = zeros(NDIP,N);
 est_dip = [];
 kkk = 1;
 for i = 1:n_samples
@@ -249,7 +292,7 @@ while exponent_likelihood(n) <= 1
     log_cost_norm = w + log(sum(exp(log_weight_unnorm-w)));
     weights = exp(log_weight_unnorm-log_cost_norm);
   end
-  
+  AllWeights(n,:) = weights;
   % MCMC step
   for i = 1:n_samples    
     particle_proposed = particle(i);    
@@ -438,6 +481,7 @@ best_particle(N) = particle(ind_max_weight);
 % output relevant data:
 
 % input parameters:
+
 result.Q_birth = Q_birth;
 result.Q_death = Q_death;
 result.dipmom_std = dipmom_std;
@@ -454,10 +498,11 @@ result.neighboursp = neighboursp;
 
 % actual results:
 result.pmap = pmap(1:size(V,1),1:n,1:NDIP);
-result.mod_sel = mod_sel;
+result.mod_sel = mod_sel(:,1:n);
 result.estimated_dipoles = estimated_dipoles;
 result.Q_estimated = Q_estimated;
 result.MCsamples = MCsamples;
+result.AllWeights = AllWeights(1:n,:);
 result.est_dip = est_dip;
 result.QV_estimated = QV_estimated;
 
