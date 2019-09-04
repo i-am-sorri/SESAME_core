@@ -41,6 +41,8 @@ function [result] = inverse_SESAME(full_data, leadfield, sourcespace, cfg)
 %                 default use:
 %                 - set the second index to the last iteration (posterior.final_it)
 %                 - set the third index to the estimated number of dipoles
+%                 - plot the resulting array as a color-coded posterior map
+%                   on the set of vertices
 % 
 %         estimated_dipoles = vertex indices of estimated dipoles in the source space
 % 
@@ -250,14 +252,14 @@ while exponent_likelihood(n) <= 1
   log_cost_norm = w + log(sum(exp(log_weight_unnorm - w)));
   weight_resampling = exp(log_weight_unnorm - log_cost_norm);
   if max(isinf(log_weight_unnorm-log_cost_norm)==1)
-    %warning%disp('warning: some weigths are inf');
+    disp('warning: some weigths are inf');
   end
   if min(weight_resampling)==0
-    %warning%disp('warning: some weights are zero');
+    disp('warning: some weights are zero');
   end  
   ESS(n) = (sum(weight_resampling.^2))^-1;
   if isnan(ESS(n))
-    %error%disp('Got a NaN in the effective sample size: try setting a larger ''noise_std'' or a smaller ''prior_q_std''');
+    disp('Got a NaN in the effective sample size: try setting a larger ''noise_std'' or a smaller ''prior_q_std''');
   end
   % Resample particles if ESS too low
   if ESS(n) < n_samples/2
@@ -405,7 +407,7 @@ while exponent_likelihood(n) <= 1
       log_cost_norm = w + log(sum(exp(log_weight_unnorm - w)));
       log_weight_aux = log_weight_unnorm - log_cost_norm;
       if max(isinf(log_weight_unnorm - log_cost_norm))==1
-        %warning%disp('log inf within bisection');
+        disp('log inf within bisection');
       end
       W = max(log_weight_aux);
       log_ESS(n+1) = -2*W - log( sum( exp( 2*(log_weight_aux - W) ) ) );
