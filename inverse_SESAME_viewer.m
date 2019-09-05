@@ -24,7 +24,7 @@ amps = max(posterior.Q_estimated');
 amps = amps/max(amps)*20;
 sourcespace = posterior.sourcespace;
 
-for t = 1:5:posterior.final_it
+for t = posterior.final_it
   m = sum(posterior.pmap(:,t,:),3);
   subplot(3,3,[4 5 7 8])
   hold off
