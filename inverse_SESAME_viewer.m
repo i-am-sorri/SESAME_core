@@ -1,4 +1,4 @@
-function [amps] = inverse_SESAME_viewer(posterior, headmodel)
+function [amps] = inverse_SESAME_viewer(posterior)
 
 % inverse_SESAME_viewer produces a sample plot of the output of SESAME,
 % as obtained by running inverse_SESAME

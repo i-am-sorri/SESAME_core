@@ -27,4 +27,4 @@ save(strcat([date,'_',num2str(TIME(4)),num2str(TIME(5)),num2str(TIME(6)),'_SESAM
 
 %% visualization
 
-inverse_SESAME_viewer(posterior, headmodel);
+inverse_SESAME_viewer(posterior);
