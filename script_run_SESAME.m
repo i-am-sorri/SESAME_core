@@ -2,22 +2,16 @@
 clc
 
 %% Load sample variables:
-load('var_for_SESAME.mat');
+load('vars_for_SESAME.mat');
 
-%% prepare variables from existing structures
-
-sourcespace = lf.pos;
-LF = zeros(size(lf.leadfield{1},1),size(lf.leadfield,2)*3);
-for i = 1:size(lf.leadfield,2)
-  LF(:,3*i-2:3*i) = lf.leadfield{i};
-end
+%% set optional input parameters
 
 cfg.t_start = 160;
 cfg.t_stop = 200;
 
 %% run SESAME
 
-posterior = inverse_SESAME(timelock.avg, LF, sourcespace, cfg);
+posterior = inverse_SESAME(data, LF, sourcespace, cfg);
 
 %% save result
 
