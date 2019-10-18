@@ -18,10 +18,15 @@ function [amps] = inverse_SESAME_viewer(posterior)
 
 % Copyright (C) 2019 Gianvittorio Luria, Sara Sommariva, Alberto Sorrentino
 
-colors = ['r','b','g','k','y','m'];
+colors = ['b','g','k','y','c','m'];
 figure
-amps = max(posterior.Q_estimated');
+if size(posterior.Q_estimated,2)>1
+  amps = max(posterior.Q_estimated');
+else
+  amps = posterior.Q_estimated;
+end
 amps = amps/max(amps)*20;
+  
 sourcespace = posterior.sourcespace;
 
 for t = posterior.final_it
@@ -44,10 +49,16 @@ for t = posterior.final_it
   
   subplot(3,3,[1 2 3])
   plot(posterior.data','Color',[0.3 0.3 0.3])
+  sigma_eff = posterior.noise_std/sqrt(posterior.exponent_likelihood(t))/...
+    sqrt(posterior.t_stop-posterior.t_start+1);
   hold on
-  plot([posterior.t_start posterior.t_start], [2*min(min(posterior.data)) 2*max(max(posterior.data))], 'r', 'linewidth',3)
-  plot([posterior.t_stop posterior.t_stop], [2*min(min(posterior.data)) 2*max(max(posterior.data))], 'r', 'linewidth',3)
-  axis([1 size(posterior.data,2) 1.1*min(min(posterior.data)) 1.1*max(max(posterior.data)) ])
+  if size(posterior.data,2)>1
+    plot([posterior.t_start posterior.t_start], [2*min(min(posterior.data)) 2*max(max(posterior.data))], 'r', 'linewidth',3)
+    plot([posterior.t_stop posterior.t_stop], [2*min(min(posterior.data)) 2*max(max(posterior.data))], 'r', 'linewidth',3)
+    plot([1 size(posterior.data,2)], [sigma_eff sigma_eff],'r--')
+    plot([1 size(posterior.data,2)], [-sigma_eff -sigma_eff],'r--')
+    axis([1 size(posterior.data,2) 1.1*min(min(posterior.data)) 1.1*max(max(posterior.data)) ])
+  end
   title('Input data')
   
   subplot(3,3,6)
@@ -55,9 +66,16 @@ for t = posterior.final_it
   xlabel('N of dipoles')
   title('posterior probability')
   subplot(3,3,9)
-  for i = 1:numel(posterior.estimated_dipoles)
-    plot(posterior.Q_estimated(i,:),colors(i));
-    hold on
+  if size(posterior.Q_estimated,2)>1
+    for i = 1:numel(posterior.estimated_dipoles)
+      plot(posterior.Q_estimated(i,:),colors(i));
+      hold on
+    end
+  else
+    for i = 1:numel(posterior.estimated_dipoles)
+      bar(i,posterior.Q_estimated(i,1),colors(i));
+      hold on
+    end
   end
   xlabel('Time')
   title('Source amplitude(s)')
