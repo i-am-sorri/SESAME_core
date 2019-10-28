@@ -6,8 +6,8 @@ load('vars_for_SESAME.mat');
 
 %% set optional input parameters
 
-cfg.t_start = 160;
-cfg.t_stop = 200;
+cfg.t_start = 168;
+cfg.t_stop = 208;
 
 %% run SESAME
 

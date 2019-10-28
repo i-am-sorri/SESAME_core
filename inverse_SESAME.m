@@ -179,6 +179,7 @@ cov_noise = noise_std^2 * eye(nsens); % covariance of the likelihood function
 delta_min = 1/100000; delta_max = 1/10; % min/max increment of the exponent in a single iteration
 gamma_high = 0.99; gamma_low = 0.9; % acceptable interval for the drop in the Effective Sample Size
 Q_birth = 1/3; Q_death = 1/20; % probability of proposing a birth/death
+dipmom_range = 3; % currently fixed hyperparameter, log--range of the hyperprior on dipmom_std
 
 exponent_likelihood(1) = 0;
 exponent_likelihood(2) = 0;
@@ -188,7 +189,7 @@ for j = 1:NDIP
   dipole(j) = struct('c', 0, 'qmean', zeros(3,1), 'qvar', zeros(3));
 end
 for i = 1:n_samples
-  particle(i) = struct('nu',0,'dipole',dipole, 'prior', 1, 'log_like', 0, 'like_det',1);
+  particle(i) = struct('nu',0,'dipole',dipole, 'prior', 1, 'log_like', 0, 'like_det',1, 'dipmom_std', 1);
 end
 
 
@@ -201,10 +202,11 @@ log_update = weights;
 n = 1;
 for i = 1:n_samples
   ndip = poissrnd(lambda_prior);
+  particle(i).dipmom_std = 10^(dipmom_range*rand)*dipmom_std/35;
   for r = 1:ndip
     particle(i) = add_dipole_location(particle(i), C);
     particle(i).dipole(r).qmean = mean_Qin;
-    particle(i).dipole(r).qvar = cov_Qin;
+    particle(i).dipole(r).qvar = particle(i).dipmom_std^2 * eye(3);
   end
 
   particle(i) = prior_and_like(particle(i), leadfield, data, lambda_prior, dipmom_std, nsens, ncomp, fact, noise_std, n_ist);
@@ -301,9 +303,31 @@ while exponent_likelihood(n) <= 1
     weights = exp(log_weight_unnorm-log_cost_norm);
   end
   AllWeights(n,:) = weights;
+  
   % MCMC step
   for i = 1:n_samples    
     particle_proposed = particle(i);    
+    
+    % MH for the hyperparameter dipmom_std
+    particle_proposed = particle(i);
+    particle_proposed.dipmom_std = gamrnd(3, particle_proposed.dipmom_std/3);
+
+    particle_proposed = prior_and_like(particle_proposed, leadfield, data, lambda_prior, dipmom_std, nsens, ncomp, fact, noise_std, n_ist);
+    
+    log_rapp_like = 0.5*exponent_likelihood(n)*n_ist*(log(particle(i).like_det)-log(particle_proposed.like_det))+...
+      (exponent_likelihood(n)/(2*noise_std^2))*(particle(i).log_like-particle_proposed.log_like);
+    rapp_like = exp(log_rapp_like);
+    
+    alpha = (particle_proposed.prior*gampdf(particle(i).dipmom_std, 3, particle_proposed.dipmom_std/3))/...
+      (particle(i).prior * gampdf(particle_proposed.dipmom_std, 3, particle(i).dipmom_std/3))*rapp_like;
+
+    alpha = min([1,alpha]);
+    if rand < alpha
+      particle(i) = particle_proposed;
+    end      
+    particle_proposed = particle(i);
+
+    
     
     % Add/Remove dipole (RJ step)    
     BirthOrDeath = rand;
@@ -603,13 +627,13 @@ end
 end
 
 function [particle] = prior_and_like(particle, leadfield, data, lambda_prior, dipmom_std, nsens, ncomp, fact, noise_std, n_ist)
-  particle.prior = 1/fact(particle.nu+1) * exp(-lambda_prior) * lambda_prior^particle.nu;
+  particle.prior = 1/fact(particle.nu+1) * exp(-lambda_prior) * lambda_prior^particle.nu / particle.dipmom_std;
   G_r = zeros(nsens,ncomp*particle.nu);
   for kk = 1:particle.nu
   G_r(:,ncomp*(kk-1)+1:ncomp*kk) = leadfield(:,ncomp*(particle.dipole(kk).c-1)+1:ncomp*particle.dipole(kk).c);
   end
   
-  cov_likelihood_risc = (dipmom_std/noise_std)^2 *G_r*G_r' + eye(nsens);
+  cov_likelihood_risc = (particle.dipmom_std/noise_std)^2 *G_r*G_r' + eye(nsens);
   cov_likelihood_risc_inv = inv(cov_likelihood_risc);
   particle.like_det = det(cov_likelihood_risc);
   particle.log_like = 0;  
