@@ -92,8 +92,8 @@ dipmom_std = [];
 n_samples = [];
 neighbours = [];
 neighboursp = [];
-t_start = [];
-t_stop = [];
+t_start = 1;
+t_stop = size(full_data,2);
 
 if isfield(cfg,'noise_std')
   noise_std = cfg.noise_std;
@@ -121,7 +121,7 @@ end
 data = full_data;
 
 if isempty(noise_std) 
-  noise_std = 0.1 * max(max(abs(data)))*sqrt(cfg.t_stop-cfg.t_start+1);
+  noise_std = 0.1 * max(max(abs(data)));%*sqrt(t_stop-t_start+1);
   disp(strcat(['Noise std set automatically to: ', num2str(noise_std)]));
 end
 if isempty(dipmom_std)
@@ -167,7 +167,7 @@ end
 
 % set parameters
 n_ist = size(data, 2);
-N = 1000;           % initial max number of iterations, determines array size
+N = 200;           % initial max number of iterations, determines array size
 C = size(V,1);      % number of voxels
 nsens = size(leadfield,1);  % number of sensors
 ncomp = size(leadfield,2)/size(sourcespace,1); % 3 if free orientation, 1 if cortically constrained
@@ -223,7 +223,7 @@ end
 weights = weights ./ sum(weights);
 
 pmap = zeros(size(V,1), N, NDIP);
-mod_sel = zeros(NDIP,N);
+mod_sel = zeros(NDIP+1,N);
 est_dip = [];
 estimated_dipoles = [];
 Q_estimated = [];
@@ -287,7 +287,7 @@ while exponent_likelihood(n) <= 1
       while partition_uniform(j) >= partition_weights(stepbystep)
         stepbystep = stepbystep + 1;
       end
-      if stepbystep == n_samples+1;
+      if stepbystep == n_samples+1
         particle(j) = particle_auxiliary(n_samples);
       else
         particle(j) = particle_auxiliary(stepbystep);
@@ -583,6 +583,7 @@ if est_num == 0
 else  
   N_sel_part = 0;
   for i = 1:n_samples
+    disp(particles(i).nu)
     if particles(i).nu == est_num
       N_sel_part = N_sel_part + 1;
       sel_particles(N_sel_part) = i;
@@ -635,7 +636,7 @@ function [particle] = prior_and_like(particle, leadfield, data, lambda_prior, di
   
   cov_likelihood_risc = (particle.dipmom_std/noise_std)^2 *G_r*G_r' + eye(nsens);
   cov_likelihood_risc_inv = inv(cov_likelihood_risc);
-  particle.like_det = det(cov_likelihood_risc);
+  particle.like_det = det(cov_likelihood_risc); 
   particle.log_like = 0;  
   for t = 1:n_ist
   particle.log_like =  particle.log_like + data(:,t)'*cov_likelihood_risc_inv*data(:,t);
@@ -669,7 +670,7 @@ end
 
 
 function[neighbours]=compute_neighbours(vertices, radius)
-neighbours=[];
+neighbours=zeros(size(vertices,1),1000);
 for i = 1 : size(vertices,1);
    clear aux3
    aux1 = vertices(i,:);
