@@ -406,7 +406,7 @@ while exponent_likelihood(n) <= 1
   end  
   [max_mod, ind_mod] = max(mod_sel(:,n));
   disp(strcat(['Estimated number of dipoles: ', num2str(ind_mod-1)]))
-  [~, eee] = point_estimation(particle, weights, V, NDIP);
+  [~, eee, stds] = point_estimation(particle, weights, V, NDIP);
   for i = 1:numel(eee)
     est_dip(kkk,:) = [V(eee(i),:) n eee(i)];
     kkk=kkk+1;
@@ -539,6 +539,7 @@ result.MCsamples = MCsamples;
 result.AllWeights = AllWeights(1:n,:);
 result.est_dip = est_dip;
 result.QV_estimated = QV_estimated;
+result.estimated_width = stds;
 
 % algorithm diagnostics
 result.final_it = n;
@@ -567,11 +568,12 @@ end
 particle.dipole(r).c = location_proposed;
 end
 
-function [est_num, est_c] = point_estimation(particles, weigths, V, NDIP)
-n_samples = length(weigths);
+function [est_num, est_c, dipole_std] = point_estimation(particles, weights, V, NDIP)
+n_samples = length(weights);
+dipole_std = [];
 mod_sel = zeros(NDIP*10, 1);
 for i = 1:n_samples
-  mod_sel(particles(i).nu+1) = mod_sel(particles(i).nu+1) + weigths(i);
+  mod_sel(particles(i).nu+1) = mod_sel(particles(i).nu+1) + weights(i);
 end
 [~, est_num] = max(mod_sel);
 est_num = est_num - 1;
@@ -582,26 +584,30 @@ if est_num == 0
   est_c = [];
 else  
   N_sel_part = 0;
+  % select particles with the desired number of dipoles
   for i = 1:n_samples
-    disp(particles(i).nu)
+%    disp(particles(i).nu)
     if particles(i).nu == est_num
       N_sel_part = N_sel_part + 1;
       sel_particles(N_sel_part) = i;
     end
   end
   particles = particles(sel_particles);
-  weigths = weigths(sel_particles);  
+  weights = weights(sel_particles);  
   dipoles = zeros(N_sel_part, est_num);
+  
+  % insert all dipoles in "dipoles" variable
   for i_part = 1:N_sel_part
     for j_dip = 1:est_num
       dipoles(i_part,j_dip) = particles(i_part).dipole(j_dip).c;
     end
   end    
-  [~ , max_part] = max(weigths);
+  [~ , max_part] = max(weights);
   c_max_part = zeros(1, est_num);
   for i_dip = 1:est_num
     c_max_part(i_dip) = particles(max_part).dipole(i_dip).c;
   end  
+  % provide homogeneous ordering of dipoles
   for i_part = 1:N_sel_part    
     c_i = dipoles(i_part,:);    
     all_perm = perms(c_i);
@@ -616,13 +622,19 @@ else
     dipoles(i_part,:) = all_perm(sel_perm,:);
   end
   pmap_sing_dip = zeros(size(V,1), est_num);
+  
   for i_dip = 1:est_num
-    
     for i_part = 1:N_sel_part
-      pmap_sing_dip(dipoles(i_part,i_dip), i_dip) =  pmap_sing_dip(dipoles(i_part,i_dip), i_dip) + weigths(i_part);
-    end
-    
+      pmap_sing_dip(dipoles(i_part,i_dip), i_dip) =  pmap_sing_dip(dipoles(i_part,i_dip), i_dip) + weights(i_part);
+    end  
   end
+  % compute mean location and variance for each estimated dipole
+  
+  for i_dip = 1:est_num
+    dipole_mean(i_dip,:) = sum(V(dipoles(:,i_dip),:).*weights')/sum(weights)
+    dipole_std(i_dip,:) = sqrt(sum((V(dipoles(:,i_dip),:)-dipole_mean(i_dip,:)).^2));
+  end
+  %disp(['mean dipole locations = ',num2str(dipole_mean), ' and dipole std = ', num2str(dipole_std)])
   [~, est_c] = max(pmap_sing_dip);
 end
 end
@@ -631,7 +643,8 @@ function [particle] = prior_and_like(particle, leadfield, data, lambda_prior, di
   particle.prior = 1/fact(particle.nu+1) * exp(-lambda_prior) * lambda_prior^particle.nu / particle.dipmom_std;
   G_r = zeros(nsens,ncomp*particle.nu);
   for kk = 1:particle.nu
-  G_r(:,ncomp*(kk-1)+1:ncomp*kk) = leadfield(:,ncomp*(particle.dipole(kk).c-1)+1:ncomp*particle.dipole(kk).c);
+%    particle.prior = particle.prior*1/size(leadfield,2)*3;
+    G_r(:,ncomp*(kk-1)+1:ncomp*kk) = leadfield(:,ncomp*(particle.dipole(kk).c-1)+1:ncomp*particle.dipole(kk).c);
   end
   
   cov_likelihood_risc = (particle.dipmom_std/noise_std)^2 *G_r*G_r' + eye(nsens);
@@ -640,6 +653,7 @@ function [particle] = prior_and_like(particle, leadfield, data, lambda_prior, di
   particle.log_like = 0;  
   for t = 1:n_ist
   particle.log_like =  particle.log_like + data(:,t)'*cov_likelihood_risc_inv*data(:,t);
+%  particle.log_like =  particle.log_like + data(:,t)'*(cov_likelihood_risc\data(:,t));
   end
 end
 
