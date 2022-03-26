@@ -629,12 +629,13 @@ else
     end  
   end
   % compute mean location and variance for each estimated dipole
-  
+  dipole_mean = zeros(est_num,3);
+  dipole_std = dipole_mean;
   for i_dip = 1:est_num
-    dipole_mean(i_dip,:) = sum(V(dipoles(:,i_dip),:).*weights')/sum(weights)
-    dipole_std(i_dip,:) = sqrt(sum((V(dipoles(:,i_dip),:)-dipole_mean(i_dip,:)).^2));
+    dipole_mean(i_dip,:) = sum(V(dipoles(:,i_dip),:).*weights')/sum(weights);
+    dipole_std(i_dip,:) = sqrt(sum((V(dipoles(:,i_dip),:)-dipole_mean(i_dip,:)).^2.*weights')/sum(weights));
+    disp(['mean dipole locations = ',num2str(dipole_mean(i_dip,:)), ' and dipole std = ', num2str(dipole_std(i_dip,:))])
   end
-  %disp(['mean dipole locations = ',num2str(dipole_mean), ' and dipole std = ', num2str(dipole_std)])
   [~, est_c] = max(pmap_sing_dip);
 end
 end
